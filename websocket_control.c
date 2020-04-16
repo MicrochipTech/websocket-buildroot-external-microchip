@@ -289,7 +289,7 @@ void reboot_system(void)
 }
 void update_wpa_supp(char ssid[],char psk[])
 {
-  int fd=0,sz=0;
+  int fd=0;
   fd = open("/etc/wpa_supplicant.conf", O_WRONLY | O_CREAT | O_TRUNC, 0777);
   if (fd < 0)
   {
@@ -320,7 +320,7 @@ void update_wpa_supp(char ssid[],char psk[])
 void update_start_script()
 {
 
-  int fd=0,sz=0;
+  int fd=0;
   char str[] = "#!/bin/sh\n case $1 in \n         start)\n                 modprobe wilc-sdio\nsh /root/Start_STA.sh\n \
                  ;;\n        stop)\n                 ifconfig wlan0 down\nmodprobe -r wilc-sdio\n                 ;;\n esac\n exit 0\n";
   fd = open("/etc/init.d/S85start_wlan", O_WRONLY | O_CREAT | O_TRUNC, 0755);
