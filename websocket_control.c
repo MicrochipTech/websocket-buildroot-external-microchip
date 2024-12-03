@@ -321,8 +321,8 @@ void update_start_script()
 {
 
   int fd=0,sz=0;
-  char str[] = "#!/bin/sh\n case $1 in \n         start)\n                 modprobe wilc-sdio\nsh /root/Start_STA.sh\n \
-                 ;;\n        stop)\n                 ifconfig wlan0 down\nmodprobe -r wilc-sdio\n                 ;;\n esac\n exit 0\n";
+  char str[] = "#!/bin/sh\nmodprobe wilc-sdio\ncase $1 in \n		start)\n			if [ -e \"/etc/run_sta\" ]; then\n				sh /root/Start_STA.sh\n			else\n				sh /root/Start_AP.sh\n			fi\n \
+                 ;;\n		stop)\n				ifconfig wlan0 down\n		;;\n esac\n exit 0\n";
   fd = open("/etc/init.d/S85start_wlan", O_WRONLY | O_CREAT | O_TRUNC, 0755);
   if (fd < 0)
   {
@@ -330,6 +330,8 @@ void update_start_script()
      exit(1);
   }
   sz = write(fd, str, strlen(str));
+  close(fd);
+  fd = open("/etc/run_sta", O_WRONLY | O_CREAT | O_TRUNC, 0755);
   close(fd);
 }
 void CommandParser(char *pc) {
