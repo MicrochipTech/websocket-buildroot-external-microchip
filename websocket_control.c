@@ -37,7 +37,7 @@
 
 #define PORT 8088
 #define BUF_LEN 0xFFFF
-#define PACKET_DUMP
+//#define PACKET_DUMP
 
 uint8_t gBuffer[BUF_LEN];
 extern volatile uint8_t data_ready;
@@ -317,22 +317,75 @@ void update_wpa_supp(char ssid[],char psk[])
   sz = write(fd, "}\n", strlen("}\n"));
   close(fd);
 }
-void update_start_script()
+#define BUFFER_SIZE 2048
+// Function to copy a file
+int copy_file(const char *src, const char *dest) {
+    int src_fd, dest_fd;
+    char buffer[BUFFER_SIZE];
+    ssize_t bytes_read, bytes_written;
+
+    src_fd = open(src, O_RDONLY);
+    if (src_fd < 0) {
+        perror("open src");
+        return -1;
+    }
+
+    dest_fd = open(dest, O_WRONLY | O_CREAT | O_TRUNC, 0644);
+    if (dest_fd < 0) {
+        perror("open dest");
+        close(src_fd);
+        return -1;
+    }
+
+    while ((bytes_read = read(src_fd, buffer, BUFFER_SIZE)) > 0) {
+        bytes_written = write(dest_fd, buffer, bytes_read);
+        if (bytes_written != bytes_read) {
+            perror("write");
+            close(src_fd);
+            close(dest_fd);
+            return -1;
+        }
+    }
+
+    if (bytes_read < 0) {
+        perror("read");
+    }
+
+    close(src_fd);
+    close(dest_fd);
+    return (bytes_read < 0) ? -1 : 0;
+}
+
+
+void update_systemd_conf()
 {
 
-  int fd=0,sz=0;
-  char str[] = "#!/bin/sh\nmodprobe wilc-sdio\ncase $1 in \n		start)\n			if [ -e \"/etc/run_sta\" ]; then\n				sh /root/Start_STA.sh\n			else\n				sh /root/Start_AP.sh\n			fi\n \
-                 ;;\n		stop)\n				ifconfig wlan0 down\n		;;\n esac\n exit 0\n";
-  fd = open("/etc/init.d/S85start_wlan", O_WRONLY | O_CREAT | O_TRUNC, 0755);
-  if (fd < 0)
-  {
-     perror("r1");
-     exit(1);
-  }
-  sz = write(fd, str, strlen(str));
-  close(fd);
-  fd = open("/etc/run_sta", O_WRONLY | O_CREAT | O_TRUNC, 0755);
-  close(fd);
+  // Copy wpa_supplicant.service.example to wpa_supplicant.service
+    if (copy_file("/usr/lib/systemd/system/wpa_supplicant.service.example", "/etc/systemd/system/wpa_supplicant.service") != 0) {
+        fprintf(stderr, "Failed to copy wpa_supplicant.service.example\n");
+        return EXIT_FAILURE;
+    }
+
+    // Copy 80-wifi-station.network.example to wlan0.network
+    if (copy_file("/usr/lib/systemd/network/80-wifi-station.network.example", "/etc/systemd/network/wlan0.network") != 0) {
+        fprintf(stderr, "Failed to copy 80-wifi-station.network.example\n");
+        return EXIT_FAILURE;
+    }
+
+    // Change directory to /etc/systemd/system/multi-user.target.wants/
+    if (chdir("/etc/systemd/system/multi-user.target.wants/") != 0)
+    {
+        perror("Error changing directory to /etc/systemd/system/multi-user.target.wants/");
+        return EXIT_FAILURE;
+    }
+
+    // Create a symbolic link for wpa_supplicant.service
+    if (symlink("/etc/systemd/system/wpa_supplicant.service", "wpa_supplicant.service") != 0) {
+        perror("symlink");
+        return EXIT_FAILURE;
+    }
+
+    printf("Operations completed successfully.\n");
 }
 void CommandParser(char *pc) {
 
@@ -378,7 +431,7 @@ void CommandParser(char *pc) {
    printf( " dev=%s\n", dev );
   
   update_wpa_supp(ssid,psk);
-  update_start_script();  
+  update_systemd_conf();  
 
   reboot_system();
 
